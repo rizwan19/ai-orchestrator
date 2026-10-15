@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Section";
@@ -29,9 +30,9 @@ export function Navbar() {
           <ul className="flex items-center gap-8 text-sm">
             {navLinks.map((link) => (
               <li key={link.href}>
-                <a href={link.href} className="text-body transition-colors hover:text-heading">
+                <Link href={link.href} className="text-body transition-colors hover:text-heading">
                   {link.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
@@ -62,13 +63,13 @@ export function Navbar() {
             <ul className="flex flex-col">
               {navLinks.map((link) => (
                 <li key={link.href}>
-                  <a
+                  <Link
                     href={link.href}
                     onClick={close}
                     className="flex min-h-11 items-center rounded-lg px-2 text-heading hover:bg-surface"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -10,6 +10,7 @@ export const site = {
 
 export const navLinks = [
   { href: "#features", label: "Features" },
+  { href: "/chat", label: "Demo" },
   { href: "#how-it-works", label: "How it works" },
   { href: "#agents", label: "Agents" },
   { href: "#faq", label: "FAQ" },
