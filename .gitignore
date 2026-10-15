@@ -55,3 +55,7 @@ build
 
 # Ignore Kotlin plugin data
 .kotlin
+
+# backend
+/backend/build/
+/buildSrc/build/

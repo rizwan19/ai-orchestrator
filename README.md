@@ -1,13 +1,14 @@
 # YourBrand — Phase 0 landing page
 
-Pre-launch landing page for a Bangladesh-first, multi-model AI workspace. Its job is to validate interest through
-an early-access waitlist. It is **not** the AI product: there is no chat, billing or checkout.
+Pre-launch landing page for a Bangladesh-first, multi-model AI workspace, plus an early chat prototype at `/chat`.
+The landing page validates interest through an early-access waitlist and does not link to the chat.
 
 > "YourBrand" is a temporary brand token. Change it in `src/lib/site.ts`, `src/components/landing/Logo.tsx` and `src/app/icon.svg`.
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Zod · Vitest + Testing Library
+- **Frontend:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Zod · Vitest + Testing Library
+- **Chat backend** (`backend/`): Spring Boot 4.1 · Java 25 · Spring Security · JPA + Flyway · PostgreSQL 18 · JUnit + Testcontainers
 
 ## Getting started
 
@@ -39,8 +40,80 @@ Or with Gradle. Only Java is required: Gradle downloads a pinned Node.js 22 into
 
 | Variable                    | Required | Description                                                  |
 | --------------------------- | -------- | ------------------------------------------------------------ |
+| `BACKEND_URL`               | No       | Where `/api/backend/*` is proxied. Default `http://localhost:8080`. |
 | `NEXT_PUBLIC_SITE_URL`      | Prod     | Base URL for canonical, Open Graph, robots.txt and sitemap.  |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | Prod     | Contact / data-deletion address in the footer and privacy page. |
+
+## Chat (`/chat`)
+
+Signed-in users chat with a curated set of low-cost models through [OpenRouter](https://openrouter.ai). Replies
+stream in token by token, and conversations are saved in Postgres.
+
+```
+browser ──/api/backend/*──▶ Next.js rewrite ──▶ Spring Boot :8080 ──▶ OpenRouter
+                                                      │
+                                                  PostgreSQL
+```
+
+The browser only talks to Next.js, so session and CSRF cookies are same-origin and need no CORS setup.
+The OpenRouter key never leaves the backend.
+
+### Running it
+
+Requires Docker (for Postgres) and JDK 25. Gradle finds a local JDK automatically, for example from SDKMAN.
+
+```bash
+cp backend/.env.example backend/.env   # then put your key in OPENROUTER_API_KEY (git-ignored)
+./gradlew devAll                       # backend + frontend together; open http://localhost:3000/signup
+```
+
+`devAll` runs Postgres (through `backend/compose.yaml`), Spring Boot on :8080, and Next.js on :3000 in parallel,
+with log lines prefixed `[backend]` or `[frontend]`. Ctrl+C stops both servers. Spring Boot usually stops Postgres too; if it's
+still up, run `docker compose -f backend/compose.yaml down` (data is kept in a volume; add `-v` to wipe it). Use `-Pport=…` to change the frontend port. You can also run each
+server on its own with `./gradlew :backend:bootRun` and `./gradlew dev`.
+
+`./gradlew test` runs both test suites: Vitest, and the backend's JUnit tests, which start a throwaway Postgres
+through Testcontainers.
+
+### Configuration (`backend/src/main/resources/application.properties`)
+
+| Property                      | Default            | Meaning |
+| ----------------------------- | ------------------ | ------- |
+| `app.chat.models[n]`          | Haiku 5.5, GPT-6 Luna, DeepSeek V4.1 Flash | Allowed OpenRouter model IDs; the first is the default. |
+| `app.chat.daily-budget-usd`   | `0.50`             | Per-user spend cap; requests are refused with 429 once reached. |
+| `app.chat.budget-zone`        | `Asia/Dhaka`       | Time zone in which the daily budget resets. |
+| `app.chat.history-limit`      | `30`               | Earlier messages sent as context with each request. |
+| `app.chat.max-message-length` | `8000`             | Maximum characters per user message. |
+
+Any property can be overridden with an environment variable, e.g. `APP_CHAT_DAILY_BUDGET_USD=1.00`.
+
+### API
+
+All endpoints are under `/api` and require a session, except `auth/csrf`, `auth/login` and `auth/signup`. Mutating
+requests need the `X-XSRF-TOKEN` header, whose value comes from the `XSRF-TOKEN` cookie. Errors are RFC 9457 problem
+details (`{ "detail": "…" }`).
+
+| Method & path                        | Purpose |
+| ------------------------------------ | ------- |
+| `GET auth/csrf`                      | Issue the CSRF cookie |
+| `POST auth/signup` / `auth/login`    | `{ email, password }` → user, starts a session (409 duplicate / 401 bad credentials) |
+| `POST auth/logout` · `GET auth/me`   | End session · current user |
+| `GET models` · `GET usage/today`     | Curated models + default · `{ spentUsd, budgetUsd }` |
+| `GET/POST conversations`             | List · create `{ model? }` |
+| `PATCH/DELETE conversations/{id}`    | Rename `{ title }` · delete |
+| `GET conversations/{id}/messages`    | History |
+| `POST conversations/{id}/messages`   | `{ content, model }` → SSE stream: `delta {text}`… then `done {message, usage}` or `error {message}` |
+
+### Known limitations
+
+- **Cost of stopped replies is not recorded.** When a user presses Stop, the partial reply is saved, but OpenRouter's
+  usage report never arrives, so that spend doesn't count toward the daily budget. OpenRouter's
+  `GET /api/v1/generation?id=` could recover it.
+- **No rate limiting on login or sign-up, and no email verification or password reset.** Add these before
+  exposing open sign-up publicly.
+- Cost is OpenRouter "credits", treated as USD.
+- Sessions are stored in server memory, so restarting the backend logs everyone out. Use Spring Session JDBC for
+  persistent sessions.
 
 ## Project structure
 
@@ -132,6 +205,8 @@ Set `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_CONTACT_EMAIL`, and replace the in-m
 host makes in-memory storage even less reliable, because each instance has its own memory.
 
 ## Not in scope (yet)
+
+- Billing, credit purchases, file attachments
 
 - Pricing section and preference buttons (deferred; the survey still asks about pricing preference)
 - Bangla copy (the font stack already falls back to Noto Sans Bengali)

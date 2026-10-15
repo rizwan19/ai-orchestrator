@@ -1,0 +1,16 @@
+# Started automatically when the backend runs (spring-boot-docker-compose),
+# or manually with `docker compose -f backend/compose.yaml up -d`.
+services:
+  postgres:
+    image: "postgres:18-alpine"
+    environment:
+      POSTGRES_DB: chat
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: chat
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+volumes:
+  postgres-data:

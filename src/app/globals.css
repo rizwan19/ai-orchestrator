@@ -70,3 +70,61 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Chat replies rendered from Markdown. */
+@layer components {
+  .markdown {
+    @apply leading-relaxed text-body;
+  }
+  .markdown > * + * {
+    @apply mt-4;
+  }
+  .markdown h1,
+  .markdown h2,
+  .markdown h3 {
+    @apply font-semibold text-heading;
+  }
+  .markdown h1 {
+    @apply text-2xl;
+  }
+  .markdown h2 {
+    @apply text-xl;
+  }
+  .markdown h3 {
+    @apply text-lg;
+  }
+  .markdown strong {
+    @apply text-heading;
+  }
+  .markdown a {
+    @apply text-cyan underline underline-offset-2;
+  }
+  .markdown ul {
+    @apply list-disc space-y-1 pl-6;
+  }
+  .markdown ol {
+    @apply list-decimal space-y-1 pl-6;
+  }
+  .markdown blockquote {
+    @apply border-l-2 border-border pl-4 text-muted;
+  }
+  .markdown :not(pre) > code {
+    @apply rounded bg-surface-raised px-1.5 py-0.5 text-[0.9em] text-heading;
+  }
+  .markdown pre code.hljs {
+    @apply bg-transparent p-0;
+  }
+  .markdown table {
+    @apply block w-full overflow-x-auto border-collapse text-sm;
+  }
+  .markdown th,
+  .markdown td {
+    @apply border border-border px-3 py-2 text-left;
+  }
+  .markdown th {
+    @apply bg-surface text-heading;
+  }
+  .markdown hr {
+    @apply border-border;
+  }
+}
