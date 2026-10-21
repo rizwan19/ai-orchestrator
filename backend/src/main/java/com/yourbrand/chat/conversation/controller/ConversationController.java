@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/conversations")
+@RequiredArgsConstructor
 class ConversationController {
 
     private static final Duration STREAM_TIMEOUT = Duration.ofMinutes(5);
@@ -46,23 +48,6 @@ class ConversationController {
     private final MessageMapper messageMapper;
     private final UsageMapper usageMapper;
     private final ExecutorService chatStreamExecutor;
-
-    ConversationController(
-            ConversationService conversations,
-            MessageService messages,
-            ChatReplyService replies,
-            ConversationMapper conversationMapper,
-            MessageMapper messageMapper,
-            UsageMapper usageMapper,
-            ExecutorService chatStreamExecutor) {
-        this.conversations = conversations;
-        this.messages = messages;
-        this.replies = replies;
-        this.conversationMapper = conversationMapper;
-        this.messageMapper = messageMapper;
-        this.usageMapper = usageMapper;
-        this.chatStreamExecutor = chatStreamExecutor;
-    }
 
     @GetMapping
     List<ConversationResponse> list(@AuthenticationPrincipal AppUserPrincipal user) {
