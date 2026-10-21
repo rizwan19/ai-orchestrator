@@ -1,6 +1,6 @@
 package com.yourbrand.chat.conversation.controller;
 
-import com.yourbrand.chat.conversation.dto.request.CreateConversationRequest;
+import com.yourbrand.chat.conversation.dto.request.ConversationRequest;
 import com.yourbrand.chat.conversation.dto.request.RenameConversationRequest;
 import com.yourbrand.chat.conversation.dto.request.SendMessageRequest;
 import com.yourbrand.chat.conversation.dto.response.ConversationResponse;
@@ -41,24 +41,24 @@ class ConversationController {
 
     private static final Duration STREAM_TIMEOUT = Duration.ofMinutes(5);
 
-    private final ConversationService conversations;
-    private final MessageService messages;
-    private final ChatReplyService replies;
+    private final ConversationService conversationService;
+    private final MessageService messageService;
+    private final ChatReplyService chatReplyService;
     private final ConversationMapper conversationMapper;
     private final MessageMapper messageMapper;
     private final UsageMapper usageMapper;
-    private final ExecutorService chatStreamExecutor;
+    private final ExecutorService executorService;
 
     @GetMapping
     List<ConversationResponse> list(@AuthenticationPrincipal AppUserPrincipal user) {
-        return conversations.list(user.id()).stream().map(conversationMapper::toResponse).toList();
+        return conversationService.getList(user.id()).stream().map(conversationMapper::toResponse).toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     ConversationResponse create(
-            @AuthenticationPrincipal AppUserPrincipal user, @RequestBody CreateConversationRequest request) {
-        return conversationMapper.toResponse(conversations.create(user.id(), request.model()));
+            @AuthenticationPrincipal AppUserPrincipal user, @RequestBody ConversationRequest request) {
+        return conversationMapper.toResponse(conversationService.create(user.id(), request.model()));
     }
 
     @PatchMapping("/{id}")
@@ -66,18 +66,18 @@ class ConversationController {
             @AuthenticationPrincipal AppUserPrincipal user,
             @PathVariable UUID id,
             @Valid @RequestBody RenameConversationRequest request) {
-        return conversationMapper.toResponse(conversations.rename(user.id(), id, request.title()));
+        return conversationMapper.toResponse(conversationService.rename(user.id(), id, request.title()));
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@AuthenticationPrincipal AppUserPrincipal user, @PathVariable UUID id) {
-        conversations.delete(user.id(), id);
+        conversationService.delete(user.id(), id);
     }
 
     @GetMapping("/{id}/messages")
     List<MessageResponse> messages(@AuthenticationPrincipal AppUserPrincipal user, @PathVariable UUID id) {
-        return messages.list(user.id(), id).stream().map(messageMapper::toResponse).toList();
+        return messageService.getList(user.id(), id).stream().map(messageMapper::toResponse).toList();
     }
 
     /** Validation and budget errors return plain JSON; once streaming starts, errors arrive as SSE events. */
@@ -86,10 +86,10 @@ class ConversationController {
             @AuthenticationPrincipal AppUserPrincipal user,
             @PathVariable UUID id,
             @Valid @RequestBody SendMessageRequest request) {
-        var reply = replies.prepare(user.id(), id, request.content(), request.model());
+        var reply = chatReplyService.prepare(user.id(), id, request.content(), request.model());
         var emitter = new SseEmitter(STREAM_TIMEOUT.toMillis());
         var listener = new SseReplyListener(emitter, messageMapper, usageMapper);
-        chatStreamExecutor.execute(() -> replies.generate(reply, listener));
+        executorService.execute(() -> chatReplyService.generate(reply, listener));
         return ResponseEntity.ok()
                 // Ask proxies not to buffer or compress the stream (gzip would hold chunks back).
                 .header("X-Accel-Buffering", "no")

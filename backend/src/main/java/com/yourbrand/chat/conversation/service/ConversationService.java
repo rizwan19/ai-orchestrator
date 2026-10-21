@@ -19,7 +19,7 @@ public class ConversationService {
         this.models = models;
     }
 
-    public List<Conversation> list(UUID userId) {
+    public List<Conversation> getList(UUID userId) {
         return conversations.findByUserIdOrderByUpdatedAtDesc(userId);
     }
 

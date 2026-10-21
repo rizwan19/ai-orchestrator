@@ -22,7 +22,7 @@ public class MessageService {
         this.properties = properties;
     }
 
-    public List<Message> list(UUID userId, UUID conversationId) {
+    public List<Message> getList(UUID userId, UUID conversationId) {
         conversations.getOwned(userId, conversationId);
         return messages.findByConversationIdOrderByCreatedAtAsc(conversationId);
     }

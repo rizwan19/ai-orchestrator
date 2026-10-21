@@ -4,10 +4,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import lombok.Getter;
+
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
+@Getter
 public class Conversation {
 
     static final String DEFAULT_TITLE = "New chat";
@@ -20,7 +23,7 @@ public class Conversation {
     private UUID userId;
     private String title = DEFAULT_TITLE;
     private String model;
-    private Instant createdAt = Instant.now();
+    private final Instant createdAt = Instant.now();
     private Instant updatedAt = createdAt;
 
     protected Conversation() {}
@@ -43,25 +46,5 @@ public class Conversation {
             title = singleLine.length() <= TITLE_LENGTH ? singleLine : singleLine.substring(0, TITLE_LENGTH - 1) + "…";
         }
         updatedAt = Instant.now();
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public UUID getUserId() {
-        return userId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getModel() {
-        return model;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
     }
 }
