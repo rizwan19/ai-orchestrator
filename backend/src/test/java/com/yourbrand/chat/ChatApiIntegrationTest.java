@@ -13,8 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
-import com.yourbrand.chat.openrouter.ChatCompletionClient;
-import com.yourbrand.chat.openrouter.OpenRouterException;
+import com.yourbrand.chat.integration.openrouter.ChatCompletionClient;
+import com.yourbrand.chat.integration.openrouter.OpenRouterException;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
