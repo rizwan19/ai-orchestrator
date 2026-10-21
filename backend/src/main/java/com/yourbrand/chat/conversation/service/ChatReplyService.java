@@ -3,7 +3,7 @@ package com.yourbrand.chat.conversation.service;
 import com.yourbrand.chat.common.exception.BadRequestException;
 import com.yourbrand.chat.config.ChatProperties;
 import com.yourbrand.chat.conversation.entity.Message;
-import com.yourbrand.chat.conversation.service.model.PreparedReply;
+import com.yourbrand.chat.conversation.service.model.ReplyContext;
 import com.yourbrand.chat.conversation.service.model.ReplyListener;
 import com.yourbrand.chat.conversation.service.model.ReplyListener.ClientGoneException;
 import com.yourbrand.chat.integration.openrouter.ChatCompletionClient;
@@ -12,6 +12,8 @@ import com.yourbrand.chat.integration.openrouter.ChatCompletionClient.Completion
 import com.yourbrand.chat.integration.openrouter.OpenRouterException;
 import com.yourbrand.chat.usage.service.UsageService;
 import java.util.UUID;
+
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,57 +22,41 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Sends a user's message to the model and persists the reply, recording its cost against the daily budget. */
 @Service
+@RequiredArgsConstructor
 public class ChatReplyService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatReplyService.class);
 
-    private final ConversationService conversations;
-    private final MessageService messages;
-    private final ModelCatalogService models;
-    private final UsageService usage;
+    private final ConversationService conversationService;
+    private final MessageService messageService;
+    private final ModelCatalogService modelCatalogService;
+    private final UsageService usageService;
     private final ChatCompletionClient client;
     private final ChatProperties properties;
     private final TransactionTemplate transaction;
 
-    ChatReplyService(
-            ConversationService conversations,
-            MessageService messages,
-            ModelCatalogService models,
-            UsageService usage,
-            ChatCompletionClient client,
-            ChatProperties properties,
-            TransactionTemplate transaction) {
-        this.conversations = conversations;
-        this.messages = messages;
-        this.models = models;
-        this.usage = usage;
-        this.client = client;
-        this.properties = properties;
-        this.transaction = transaction;
-    }
-
     /** Validates the request and saves the user's message; failures here surface as plain HTTP errors. */
     @Transactional
-    public PreparedReply prepare(UUID userId, UUID conversationId, String content, String model) {
-        var conversation = conversations.getOwned(userId, conversationId);
-        models.requireSupported(model);
+    public ReplyContext acceptUserMessage(UUID userId, UUID conversationId, String content, String model) {
+        var conversation = conversationService.getConversationById(userId, conversationId);
+        modelCatalogService.requireSupported(model);
         if (content.length() > properties.maxMessageLength()) {
             throw new BadRequestException(
                     "Messages are limited to %d characters.".formatted(properties.maxMessageLength()));
         }
-        usage.assertWithinBudget(userId);
+        usageService.assertWithinBudget(userId);
 
-        messages.saveUser(conversationId, content);
+        messageService.saveUser(conversationId, content);
         conversation.recordUserMessage(model, content);
 
-        var history = messages.recentHistory(conversationId).stream()
+        var history = messageService.recentHistory(conversationId).stream()
                 .map(message -> new ChatMessage(message.getRole().value(), message.getContent()))
                 .toList();
-        return new PreparedReply(userId, conversationId, model, history);
+        return new ReplyContext(userId, conversationId, model, history);
     }
 
     /** Blocks until the reply finishes; progress and the outcome are reported to {@code listener}. */
-    public void generate(PreparedReply reply, ReplyListener listener) {
+    public void generate(ReplyContext reply, ReplyListener listener) {
         var partial = new StringBuilder();
         Message saved = null;
         try {
@@ -79,7 +65,7 @@ public class ChatReplyService {
                 listener.onDelta(delta);
             });
             saved = saveAssistant(reply, completion);
-            listener.onComplete(saved, usage.today(reply.userId()));
+            listener.onComplete(saved, usageService.today(reply.userId()));
         } catch (ClientGoneException e) {
             // Keep what was generated so far. Cost is unknown for an aborted stream, so it is not recorded.
             if (saved == null && !partial.isEmpty()) {
@@ -94,11 +80,11 @@ public class ChatReplyService {
         }
     }
 
-    private Message saveAssistant(PreparedReply reply, Completion completion) {
+    private Message saveAssistant(ReplyContext reply, Completion completion) {
         return transaction.execute(status -> {
-            var message = messages.saveAssistant(reply.conversationId(), reply.model(), completion);
+            var message = messageService.saveAssistant(reply.conversationId(), reply.model(), completion);
             if (completion.cost() != null) {
-                usage.record(reply.userId(), reply.model(), completion.cost());
+                usageService.record(reply.userId(), reply.model(), completion.cost());
             }
             return message;
         });

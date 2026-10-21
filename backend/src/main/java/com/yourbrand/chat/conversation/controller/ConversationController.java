@@ -4,7 +4,7 @@ import com.yourbrand.chat.conversation.dto.request.ConversationRequest;
 import com.yourbrand.chat.conversation.dto.request.RenameConversationRequest;
 import com.yourbrand.chat.conversation.dto.request.SendMessageRequest;
 import com.yourbrand.chat.conversation.dto.response.ConversationResponse;
-import com.yourbrand.chat.conversation.dto.response.MessageResponse;
+import com.yourbrand.chat.conversation.dto.response.MessagePageResponse;
 import com.yourbrand.chat.conversation.mapper.ConversationMapper;
 import com.yourbrand.chat.conversation.mapper.MessageMapper;
 import com.yourbrand.chat.conversation.service.ChatReplyService;
@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -76,8 +77,12 @@ class ConversationController {
     }
 
     @GetMapping("/{id}/messages")
-    List<MessageResponse> messages(@AuthenticationPrincipal AppUserPrincipal user, @PathVariable UUID id) {
-        return messageService.getList(user.id(), id).stream().map(messageMapper::toResponse).toList();
+    MessagePageResponse messages(
+            @AuthenticationPrincipal AppUserPrincipal user,
+            @PathVariable UUID id,
+            @RequestParam(name = "cursor", required = false) UUID cursor,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
+        return messageMapper.toPageResponse(messageService.getPage(user.id(), id, cursor, size));
     }
 
     /** Validation and budget errors return plain JSON; once streaming starts, errors arrive as SSE events. */
@@ -86,7 +91,7 @@ class ConversationController {
             @AuthenticationPrincipal AppUserPrincipal user,
             @PathVariable UUID id,
             @Valid @RequestBody SendMessageRequest request) {
-        var reply = chatReplyService.prepare(user.id(), id, request.content(), request.model());
+        var reply = chatReplyService.acceptUserMessage(user.id(), id, request.content(), request.model());
         var emitter = new SseEmitter(STREAM_TIMEOUT.toMillis());
         var listener = new SseReplyListener(emitter, messageMapper, usageMapper);
         executorService.execute(() -> chatReplyService.generate(reply, listener));

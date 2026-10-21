@@ -101,7 +101,7 @@ details (`{ "detail": "…" }`).
 | `GET models` · `GET usage/today`     | Curated models + default · `{ spentUsd, budgetUsd }` |
 | `GET/POST conversations`             | List · create `{ model? }` |
 | `PATCH/DELETE conversations/{id}`    | Rename `{ title }` · delete |
-| `GET conversations/{id}/messages`    | History |
+| `GET conversations/{id}/messages`    | Latest history page; `?size=1–100` (default 10) `&cursor={nextCursor}` → `{ items, nextCursor, hasMore }`, items oldest first (400 bad size; unknown cursor → empty page) |
 | `POST conversations/{id}/messages`   | `{ content, model }` → SSE stream: `delta {text}`… then `done {message, usage}` or `error {message}` |
 
 ### Known limitations

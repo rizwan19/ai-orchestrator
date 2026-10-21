@@ -30,18 +30,18 @@ public class ConversationService {
 
     @Transactional
     public Conversation rename(UUID userId, UUID conversationId, String title) {
-        var conversation = getOwned(userId, conversationId);
+        var conversation = getConversationById(userId, conversationId);
         conversation.rename(title.strip());
         return conversation;
     }
 
     @Transactional
     public void delete(UUID userId, UUID conversationId) {
-        conversations.delete(getOwned(userId, conversationId));
+        conversations.delete(getConversationById(userId, conversationId));
     }
 
     /** Other users' conversations are reported as missing rather than forbidden, so ids cannot be probed. */
-    public Conversation getOwned(UUID userId, UUID conversationId) {
+    public Conversation getConversationById(UUID userId, UUID conversationId) {
         return conversations.findByIdAndUserId(conversationId, userId)
                 .orElseThrow(() -> new NotFoundException("Conversation not found."));
     }

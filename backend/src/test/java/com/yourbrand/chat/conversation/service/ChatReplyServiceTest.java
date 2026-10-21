@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 import com.yourbrand.chat.common.exception.BadRequestException;
 import com.yourbrand.chat.config.ChatProperties;
 import com.yourbrand.chat.conversation.entity.Message;
-import com.yourbrand.chat.conversation.service.model.PreparedReply;
+import com.yourbrand.chat.conversation.service.model.ReplyContext;
 import com.yourbrand.chat.conversation.service.model.ReplyListener;
 import com.yourbrand.chat.integration.openrouter.ChatCompletionClient;
 import com.yourbrand.chat.integration.openrouter.ChatCompletionClient.ChatMessage;
@@ -42,8 +42,8 @@ class ChatReplyServiceTest {
     private final ChatProperties properties = new ChatProperties(
             List.of(new ChatProperties.Model(MODEL, "Test")), BigDecimal.ONE, ZoneId.of("UTC"), 10, 30);
     private final RecordingListener listener = new RecordingListener();
-    private final PreparedReply reply =
-            new PreparedReply(UUID.randomUUID(), UUID.randomUUID(), MODEL, List.of(new ChatMessage("user", "Hi")));
+    private final ReplyContext reply =
+            new ReplyContext(UUID.randomUUID(), UUID.randomUUID(), MODEL, List.of(new ChatMessage("user", "Hi")));
 
     @Test
     void streamsDeltasThenSavesTheReplyAndRecordsItsCost() {
@@ -96,7 +96,7 @@ class ChatReplyServiceTest {
     void rejectsMessagesOverTheLengthLimitBeforeSavingAnything() {
         var service = service((model, history, onDelta) -> null);
 
-        assertThatThrownBy(() -> service.prepare(reply.userId(), reply.conversationId(), "x".repeat(11), MODEL))
+        assertThatThrownBy(() -> service.acceptUserMessage(reply.userId(), reply.conversationId(), "x".repeat(11), MODEL))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Messages are limited to 10 characters.");
         verify(messages, never()).saveUser(any(), any());

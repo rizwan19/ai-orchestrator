@@ -26,6 +26,18 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface MessagePage {
+  items: ChatMessage[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+interface MessagePageOptions {
+  cursor?: string;
+  size?: number;
+  signal?: AbortSignal;
+}
+
 export interface DailyUsage {
   spentUsd: number;
   budgetUsd: number;
@@ -85,7 +97,11 @@ export const api = {
   createConversation: (model: string) => json<Conversation>("/conversations", send("POST", { model })),
   renameConversation: (id: string, title: string) => json<Conversation>(`/conversations/${id}`, send("PATCH", { title })),
   deleteConversation: (id: string) => json<void>(`/conversations/${id}`, send("DELETE")),
-  messages: (id: string) => json<ChatMessage[]>(`/conversations/${id}/messages`),
+  messages: (id: string, { cursor, size = 10, signal }: MessagePageOptions = {}) => {
+    const params = new URLSearchParams({ size: String(size) });
+    if (cursor) params.set("cursor", cursor);
+    return json<MessagePage>(`/conversations/${id}/messages?${params.toString()}`, { signal });
+  },
 };
 
 interface StreamHandlers {

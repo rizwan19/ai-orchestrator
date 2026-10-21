@@ -98,10 +98,10 @@ class ChatApiIntegrationTest {
                 .contains("\"spentUsd\":0.002");
 
         mvc.perform(get("/api/conversations/{id}/messages", conversationId).session(session))
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].role").value("user"))
-                .andExpect(jsonPath("$[1].role").value("assistant"))
-                .andExpect(jsonPath("$[1].content").value("Echo: Hello there"));
+                .andExpect(jsonPath("$.items", hasSize(2)))
+                .andExpect(jsonPath("$.items[0].role").value("user"))
+                .andExpect(jsonPath("$.items[1].role").value("assistant"))
+                .andExpect(jsonPath("$.items[1].content").value("Echo: Hello there"));
         mvc.perform(get("/api/conversations").session(session))
                 .andExpect(jsonPath("$[0].title").value("Hello there"));
 

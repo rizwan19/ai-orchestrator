@@ -5,4 +5,4 @@ import java.util.List;
 import java.util.UUID;
 
 /** Everything the streaming phase needs, resolved while the request is still synchronous. */
-public record PreparedReply(UUID userId, UUID conversationId, String model, List<ChatMessage> history) {}
+public record ReplyContext(UUID userId, UUID conversationId, String model, List<ChatMessage> history) {}

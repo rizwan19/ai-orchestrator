@@ -73,6 +73,15 @@ export function ChatApp() {
           draft={chat.draft}
           models={chat.models}
           onSuggestion={(text) => chat.send(text)}
+          historyLoading={chat.historyLoading}
+          historyError={chat.historyError}
+          onRetryHistory={chat.retryHistory}
+          hasMore={chat.hasMore}
+          loadingOlder={chat.loadingOlder}
+          olderError={chat.olderError}
+          onLoadOlder={chat.loadOlder}
+          prependVersion={chat.prependVersion}
+          sendScrollVersion={chat.sendScrollVersion}
         />
 
         {chat.error && (
@@ -91,6 +100,7 @@ export function ChatApp() {
           streaming={Boolean(chat.draft)}
           onSend={chat.send}
           onStop={chat.stop}
+          disabled={chat.historyLoading || Boolean(chat.historyError)}
         />
       </main>
     </div>
