@@ -85,7 +85,6 @@ class ConversationController {
         return messageMapper.toPageResponse(messageService.getPage(user.id(), id, cursor, size));
     }
 
-    /** Validation and budget errors return plain JSON; once streaming starts, errors arrive as SSE events. */
     @PostMapping(path = "/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     ResponseEntity<SseEmitter> send(
             @AuthenticationPrincipal AppUserPrincipal user,
@@ -96,7 +95,6 @@ class ConversationController {
         var listener = new SseReplyListener(emitter, messageMapper, usageMapper);
         executorService.execute(() -> chatReplyService.generate(reply, listener));
         return ResponseEntity.ok()
-                // Ask proxies not to buffer or compress the stream (gzip would hold chunks back).
                 .header("X-Accel-Buffering", "no")
                 .header("Cache-Control", "no-cache, no-transform")
                 .body(emitter);
