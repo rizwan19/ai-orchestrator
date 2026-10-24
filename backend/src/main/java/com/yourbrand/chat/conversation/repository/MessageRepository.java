@@ -11,7 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, UUID> {
 
-    List<Message> findByConversationIdOrderByCreatedAtDesc(UUID conversationId, Limit limit);
+    List<Message> findByConversationIdAndSequenceGreaterThanAndSequenceLessThanOrderBySequenceAsc(
+            UUID conversationId, long afterSequence, long beforeSequence, Limit limit);
 
     List<Message> findByConversationIdOrderByCreatedAtDescIdDesc(UUID conversationId, Pageable pageable);
 

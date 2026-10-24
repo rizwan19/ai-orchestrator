@@ -82,10 +82,27 @@ through Testcontainers.
 | `app.chat.models[n]`          | Haiku 5.5, GPT-6 Luna, DeepSeek V4.1 Flash | Allowed OpenRouter model IDs; the first is the default. |
 | `app.chat.daily-budget-usd`   | `0.50`             | Per-user spend cap; requests are refused with 429 once reached. |
 | `app.chat.budget-zone`        | `Asia/Dhaka`       | Time zone in which the daily budget resets. |
-| `app.chat.history-limit`      | `30`               | Earlier messages sent as context with each request. |
+| `app.chat.history-limit`      | `15`               | Most earlier messages sent verbatim with each request; older ones are summarized. |
 | `app.chat.max-message-length` | `8000`             | Maximum characters per user message. |
+| `app.chat.context.max-input-tokens`      | `6000` | Estimated-token budget for a reply's input (summary + recent messages + new message). |
+| `app.chat.context.summary-target-tokens` | `1000` | Length the summarizer is asked to aim for. |
+| `app.chat.context.summary-output-limit`  | `3000` | Hard cap on a summary; longer or truncated output is rejected. |
 
 Any property can be overridden with an environment variable, e.g. `APP_CHAT_DAILY_BUDGET_USD=1.00`.
+
+#### Context management
+
+Each reply is sent the latest conversation summary, the messages it does not cover yet, and the new message. When
+more than `history-limit` messages are uncovered, or the input would exceed `max-input-tokens`, the oldest uncovered
+messages (up to `history-limit` at a time) are folded into a new cumulative summary by the model chosen for the send.
+Summary versions are kept in `conversation_summary`; only the latest is used. Summary calls count toward the daily
+budget, and a failed or truncated summary stops the reply with an SSE `error` while keeping the user's message.
+
+Tokens are estimated locally (UTF-8 bytes ÷ 3, plus per-message framing), not with each model's tokenizer. A message
+that alone exceeds the input budget is rejected with 400 before it is saved.
+
+Only one reply runs per conversation at a time (409 otherwise). The guard lives in memory, so this holds for a single
+backend instance only.
 
 ### API
 
@@ -102,7 +119,7 @@ details (`{ "detail": "…" }`).
 | `GET/POST conversations`             | List · create `{ model? }` |
 | `PATCH/DELETE conversations/{id}`    | Rename `{ title }` · delete |
 | `GET conversations/{id}/messages`    | Latest history page; `?size=1–100` (default 10) `&cursor={nextCursor}` → `{ items, nextCursor, hasMore }`, items oldest first (400 bad size; unknown cursor → empty page) |
-| `POST conversations/{id}/messages`   | `{ content, model }` → SSE stream: `delta {text}`… then `done {message, usage}` or `error {message}` |
+| `POST conversations/{id}/messages`   | `{ content, model }` → SSE stream: `delta {text}`… then `done {message, usage}` or `error {message}` (409 while a reply is still running) |
 
 ### Known limitations
 

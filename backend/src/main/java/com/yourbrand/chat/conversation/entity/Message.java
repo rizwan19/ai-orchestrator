@@ -47,6 +47,7 @@ public class Message {
     private UUID id;
 
     private UUID conversationId;
+    private long sequence;
     private Role role;
     private String content;
     private String model;
@@ -57,20 +58,27 @@ public class Message {
 
     protected Message() {}
 
-    private Message(UUID conversationId, Role role, String content, String model) {
+    private Message(UUID conversationId, long sequence, Role role, String content, String model) {
         this.conversationId = conversationId;
+        this.sequence = sequence;
         this.role = role;
         this.content = content;
         this.model = model;
     }
 
-    public static Message user(UUID conversationId, String content) {
-        return new Message(conversationId, Role.USER, content, null);
+    public static Message user(UUID conversationId, long sequence, String content) {
+        return new Message(conversationId, sequence, Role.USER, content, null);
     }
 
     public static Message assistant(
-            UUID conversationId, String model, String content, Integer promptTokens, Integer completionTokens, BigDecimal cost) {
-        var message = new Message(conversationId, Role.ASSISTANT, content, model);
+            UUID conversationId,
+            long sequence,
+            String model,
+            String content,
+            Integer promptTokens,
+            Integer completionTokens,
+            BigDecimal cost) {
+        var message = new Message(conversationId, sequence, Role.ASSISTANT, content, model);
         message.promptTokens = promptTokens;
         message.completionTokens = completionTokens;
         message.costUsd = cost;
@@ -79,6 +87,11 @@ public class Message {
 
     public UUID getId() {
         return id;
+    }
+
+    /** Position within the conversation, starting at 1; orders history and marks summary boundaries. */
+    public long getSequence() {
+        return sequence;
     }
 
     public Role getRole() {

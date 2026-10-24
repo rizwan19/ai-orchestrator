@@ -7,6 +7,7 @@ import com.yourbrand.chat.conversation.dto.response.ConversationResponse;
 import com.yourbrand.chat.conversation.dto.response.MessagePageResponse;
 import com.yourbrand.chat.conversation.mapper.ConversationMapper;
 import com.yourbrand.chat.conversation.mapper.MessageMapper;
+import com.yourbrand.chat.conversation.service.ActiveReplyGuard;
 import com.yourbrand.chat.conversation.service.ChatReplyService;
 import com.yourbrand.chat.conversation.service.ConversationService;
 import com.yourbrand.chat.conversation.service.MessageService;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -40,7 +42,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequiredArgsConstructor
 class ConversationController {
 
-    private static final Duration STREAM_TIMEOUT = Duration.ofMinutes(5);
+    private static final Duration STREAM_TIMEOUT = ActiveReplyGuard.RUN_DEADLINE;
 
     private final ConversationService conversationService;
     private final MessageService messageService;
@@ -92,8 +94,16 @@ class ConversationController {
             @Valid @RequestBody SendMessageRequest request) {
         var reply = chatReplyService.acceptUserMessage(user.id(), id, request.content(), request.model());
         var emitter = new SseEmitter(STREAM_TIMEOUT.toMillis());
+        emitter.onTimeout(() -> chatReplyService.cancel(reply));
+        emitter.onError(e -> chatReplyService.cancel(reply));
+        emitter.onCompletion(() -> chatReplyService.cancel(reply));
         var listener = new SseReplyListener(emitter, messageMapper, usageMapper);
-        executorService.execute(() -> chatReplyService.generate(reply, listener));
+        try {
+            executorService.execute(() -> chatReplyService.generate(reply, listener));
+        } catch (RejectedExecutionException e) {
+            chatReplyService.abandon(reply);
+            throw e;
+        }
         return ResponseEntity.ok()
                 .header("X-Accel-Buffering", "no")
                 .header("Cache-Control", "no-cache, no-transform")

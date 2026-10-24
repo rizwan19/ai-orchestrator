@@ -12,7 +12,6 @@ import java.io.IOException;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-/** Streams a reply as SSE events: {@code delta} {text}, then {@code done} {message, usage} or {@code error} {message}. */
 public class SseReplyListener implements ReplyListener {
 
     private final SseEmitter emitter;

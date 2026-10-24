@@ -1,16 +1,15 @@
 package com.yourbrand.chat.conversation.service;
 
 import com.yourbrand.chat.common.exception.BadRequestException;
-import com.yourbrand.chat.config.ChatProperties;
+import com.yourbrand.chat.conversation.entity.Conversation;
 import com.yourbrand.chat.conversation.entity.Message;
 import com.yourbrand.chat.conversation.repository.MessageRepository;
 import com.yourbrand.chat.conversation.service.model.MessageBatch;
-import com.yourbrand.chat.integration.openrouter.ChatCompletionClient.Completion;
+import com.yourbrand.chat.integration.openrouter.Completion;
 import java.util.List;
 import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +20,6 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final ConversationService conversationService;
-    private final ChatProperties properties;
 
     private static final int MAX_PAGE_SIZE = 100;
 
@@ -47,19 +45,16 @@ public class MessageService {
         return new MessageBatch(List.copyOf(descending.reversed()), nextCursor);
     }
 
-    /** The latest {@code app.chat.history-limit} messages, oldest first: the context sent to the model. */
-    public List<Message> recentHistory(UUID conversationId) {
-        return messageRepository.findByConversationIdOrderByCreatedAtDesc(conversationId, Limit.of(properties.historyLimit()))
-                .reversed();
+    /** {@code conversation} must be locked (see {@link ConversationService#lock}) by the surrounding transaction. */
+    public Message saveMessage(Conversation conversation, String content) {
+        return messageRepository.save(Message.user(conversation.getId(), conversation.nextMessageSequence(), content));
     }
 
-    public Message saveUser(UUID conversationId, String content) {
-        return messageRepository.save(Message.user(conversationId, content));
-    }
-
-    public Message saveAssistant(UUID conversationId, String model, Completion completion) {
+    /** {@code conversation} must be locked (see {@link ConversationService#lock}) by the surrounding transaction. */
+    public Message saveAssistant(Conversation conversation, String model, Completion completion) {
         return messageRepository.save(Message.assistant(
-                conversationId,
+                conversation.getId(),
+                conversation.nextMessageSequence(),
                 model,
                 completion.content(),
                 completion.promptTokens(),

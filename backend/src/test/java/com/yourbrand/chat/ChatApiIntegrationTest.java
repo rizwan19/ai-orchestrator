@@ -13,10 +13,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.yourbrand.chat.common.concurrent.CancellationToken;
 import com.yourbrand.chat.integration.openrouter.ChatCompletionClient;
+import com.yourbrand.chat.integration.openrouter.ChatMessage;
+import com.yourbrand.chat.integration.openrouter.Completion;
+import com.yourbrand.chat.integration.openrouter.CompletionResult;
 import com.yourbrand.chat.integration.openrouter.OpenRouterException;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,12 +46,22 @@ class ChatApiIntegrationTest {
         @Bean
         @Primary
         ChatCompletionClient fakeChatCompletionClient() {
-            return (model, messages, onDelta) -> {
-                String prompt = messages.getLast().content();
-                if (prompt.equals("fail")) throw new OpenRouterException(402, "Insufficient credits");
-                onDelta.accept("Echo: ");
-                onDelta.accept(prompt);
-                return new ChatCompletionClient.Completion("Echo: " + prompt, 10, 3, new BigDecimal("0.002"));
+            return new ChatCompletionClient() {
+                @Override
+                public Completion stream(
+                        String model, List<ChatMessage> messages, Consumer<String> onDelta, CancellationToken cancellation) {
+                    String prompt = messages.getLast().content();
+                    if (prompt.equals("fail")) throw new OpenRouterException(402, "Insufficient credits");
+                    onDelta.accept("Echo: ");
+                    onDelta.accept(prompt);
+                    return new Completion("Echo: " + prompt, 10, 3, new BigDecimal("0.002"));
+                }
+
+                @Override
+                public CompletionResult complete(
+                        String model, List<ChatMessage> messages, int maxCompletionTokens, CancellationToken cancellation) {
+                    return new CompletionResult(new Completion("Summary", 10, 3, new BigDecimal("0.001")), "stop");
+                }
             };
         }
     }

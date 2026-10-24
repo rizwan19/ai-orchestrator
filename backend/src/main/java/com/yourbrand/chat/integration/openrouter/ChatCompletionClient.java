@@ -1,16 +1,19 @@
 package com.yourbrand.chat.integration.openrouter;
 
-import java.math.BigDecimal;
+import com.yourbrand.chat.common.concurrent.CancellationToken;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** Streams a chat completion. Blocks until the reply finishes; text fragments are pushed to {@code onDelta}. */
+/**
+ * Chat completions. Both calls block until the reply finishes and abort with
+ * {@link com.yourbrand.chat.common.concurrent.OperationCancelledException} once {@code cancellation} fires.
+ */
 public interface ChatCompletionClient {
 
-    Completion stream(String model, List<ChatMessage> messages, Consumer<String> onDelta);
+    /** Streams a reply; text fragments are pushed to {@code onDelta}. */
+    Completion stream(String model, List<ChatMessage> messages, Consumer<String> onDelta, CancellationToken cancellation);
 
-    record ChatMessage(String role, String content) {}
-
-    /** {@code cost} is in OpenRouter credits (USD). Usage fields are null if the provider did not report them. */
-    record Completion(String content, Integer promptTokens, Integer completionTokens, BigDecimal cost) {}
+    /** Requests a whole reply at once, capped at {@code maxCompletionTokens}. */
+    CompletionResult complete(
+            String model, List<ChatMessage> messages, int maxCompletionTokens, CancellationToken cancellation);
 }

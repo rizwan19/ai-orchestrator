@@ -23,6 +23,7 @@ public class Conversation {
     private UUID userId;
     private String title = DEFAULT_TITLE;
     private String model;
+    private long lastMessageSequence;
     private final Instant createdAt = Instant.now();
     private Instant updatedAt = createdAt;
 
@@ -33,12 +34,16 @@ public class Conversation {
         this.model = model;
     }
 
+    /** Callers must hold the row lock (see {@code ConversationService#lock}) so concurrent writers never share a value. */
+    public long nextMessageSequence() {
+        return ++lastMessageSequence;
+    }
+
     public void rename(String title) {
         this.title = title;
         this.updatedAt = Instant.now();
     }
 
-    /** Remembers the model in use and names the conversation after its first message. */
     public void recordUserMessage(String model, String content) {
         this.model = model;
         if (DEFAULT_TITLE.equals(title)) {

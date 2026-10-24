@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sun.net.httpserver.HttpServer;
+import com.yourbrand.chat.common.concurrent.CancellationToken;
 import com.yourbrand.chat.config.OpenRouterProperties;
-import com.yourbrand.chat.integration.openrouter.ChatCompletionClient.ChatMessage;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
@@ -45,7 +45,7 @@ class OpenRouterClientTest {
                 """);
         List<String> deltas = new ArrayList<>();
 
-        var completion = client.stream("test/model", List.of(new ChatMessage("user", "Hi")), deltas::add);
+        var completion = client.stream("test/model", List.of(new ChatMessage("user", "Hi")), deltas::add, new CancellationToken());
 
         assertThat(deltas).containsExactly("Hel", "lo");
         assertThat(completion.content()).isEqualTo("Hello");
@@ -60,7 +60,7 @@ class OpenRouterClientTest {
     void reportsErrorsBeforeTheStreamStarts() {
         var client = clientRespondingWith(402, "{\"error\":{\"code\":402,\"message\":\"Insufficient credits\"}}");
 
-        assertThatThrownBy(() -> client.stream("m", List.of(), delta -> {}))
+        assertThatThrownBy(() -> client.stream("m", List.of(), delta -> {}, new CancellationToken()))
                 .isInstanceOfSatisfying(OpenRouterException.class, e -> {
                     assertThat(e.status()).isEqualTo(402);
                     assertThat(e.getMessage()).isEqualTo("Insufficient credits");
@@ -76,7 +76,7 @@ class OpenRouterClientTest {
 
                 """);
 
-        assertThatThrownBy(() -> client.stream("m", List.of(), delta -> {}))
+        assertThatThrownBy(() -> client.stream("m", List.of(), delta -> {}, new CancellationToken()))
                 .isInstanceOf(OpenRouterException.class)
                 .hasMessage("Provider disconnected");
     }
